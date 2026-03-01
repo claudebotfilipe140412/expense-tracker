@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker - {{ month_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glow-green { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+        .glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                    💰 Expense Tracker
+                </h1>
+                <p class="text-gray-400 mt-2">{{ month_name }}</p>
+            </div>
+            <div class="flex gap-2 items-center">
+                <!-- Month Selector -->
+                <select id="monthSelect" onchange="changeMonth()" class="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                    {% for y, m in available_months %}
+                    <option value="{{ y }}-{{ m }}" {% if y == year and m == month %}selected{% endif %}>
+                        {{ ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1] }} {{ y }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button onclick="openAddModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
+                    ➕ Add Expense
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Income -->
+            <div class="card rounded-xl p-6 glow-green">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Monthly Income</p>
+                        <p class="text-3xl font-bold text-green-400">{{ currency }}{{ "%.2f"|format(summary.income) }}</p>
+                    </div>
+                    <div class="text-4xl">💵</div>
+                </div>
+            </div>
+
+            <!-- Total Spent -->
+            <div class="card rounded-xl p-6 glow-red">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Spent</p>
+                        <p class="text-3xl font-bold text-red-400">{{ currency }}{{ "%.2f"|format(summary.total_spent) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Fixed: {{ currency }}{{ "%.2f"|format(summary.total_fixed) }} + Variable: {{ currency }}{{ "%.2f"|format(summary.total_variable) }}</p>
+                    </div>
+                    <div class="text-4xl">🛒</div>
+                </div>
+            </div>
+
+            <!-- Remaining Budget -->
+            <div class="card rounded-xl p-6 {% if summary.remaining >= 0 %}glow-blue{% else %}glow-red{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Remaining Budget</p>
+                        <p class="text-3xl font-bold {% if summary.remaining >= 0 %}text-blue-400{% else %}text-red-400{% endif %}">
+                            {{ currency }}{{ "%.2f"|format(summary.remaining) }}
+                        </p>
+                        {% if is_current_month and summary.days_left > 0 %}
+                        <p class="text-xs text-gray-500 mt-1">{{ currency }}{{ "%.2f"|format(summary.daily_budget) }}/day ({{ summary.days_left }} days left)</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-4xl">📊</div>
+                </div>
+            </div>
+
+            <!-- Savings -->
+            <div class="card rounded-xl p-6 glow-purple">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Monthly Savings</p>
+                        <p class="text-3xl font-bold text-purple-400">{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ "%.1f"|format(summary.savings_rate) }}% of income</p>
+                    </div>
+                    <div class="text-4xl">💎</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Progress -->
+        <div class="card rounded-xl p-6 mb-8">
+            <h3 class="text-xl font-semibold mb-4 text-gray-300">📈 Budget Usage</h3>
+            <div class="mb-2 flex justify-between text-sm">
+                <span>Flexible Budget: {{ currency }}{{ "%.2f"|format(summary.available_budget) }}</span>
+                <span>{{ "%.1f"|format((summary.total_variable / summary.available_budget * 100) if summary.available_budget > 0 else 0) }}% used</span>
+            </div>
+            <div class="w-full bg-gray-700 rounded-full h-6">
+                {% set usage_pct = (summary.total_variable / summary.available_budget * 100) if summary.available_budget > 0 else 0 %}
+                <div class="h-6 rounded-full transition-all {% if usage_pct > 90 %}bg-red-500{% elif usage_pct > 70 %}bg-yellow-500{% else %}bg-green-500{% endif %}" 
+                     style="width: {{ [usage_pct, 100]|min }}%"></div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Fixed Expenses & Savings -->
+            <div class="space-y-6">
+                <!-- Fixed Expenses -->
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-orange-300">🏠 Fixed Expenses</h3>
+                    <div class="space-y-3">
+                        {% for expense in summary.fixed_expenses %}
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                            <div>
+                                <p class="font-medium">{{ expense.name }}</p>
+                                <p class="text-xs text-gray-500">{{ expense.category }}</p>
+                            </div>
+                            <p class="text-orange-400 font-mono">{{ currency }}{{ "%.2f"|format(expense.amount) }}</p>
+                        </div>
+                        {% endfor %}
+                        <div class="border-t border-gray-700 pt-3 flex justify-between">
+                            <span class="font-semibold">Total</span>
+                            <span class="text-orange-400 font-bold">{{ currency }}{{ "%.2f"|format(summary.total_fixed) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savings -->
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-purple-300">💎 Savings</h3>
+                    <div class="space-y-3">
+                        {% for saving in summary.savings %}
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                            <p class="font-medium">{{ saving.name }}</p>
+                            <p class="text-purple-400 font-mono">{{ currency }}{{ "%.2f"|format(saving.amount) }}</p>
+                        </div>
+                        {% endfor %}
+                        <div class="border-t border-gray-700 pt-3 flex justify-between">
+                            <span class="font-semibold">Total</span>
+                            <span class="text-purple-400 font-bold">{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="card rounded-xl p-6">
+                <h3 class="text-xl font-semibold mb-4 text-blue-300">📊 Spending by Category</h3>
+                {% if summary.category_totals %}
+                <canvas id="categoryChart" height="300"></canvas>
+                {% else %}
+                <p class="text-gray-500 text-center py-8">No expenses this month yet</p>
+                {% endif %}
+            </div>
+
+            <!-- Recent Expenses -->
+            <div class="card rounded-xl p-6">
+                <h3 class="text-xl font-semibold mb-4 text-green-300">📝 Recent Expenses</h3>
+                <div class="space-y-2 max-h-96 overflow-y-auto">
+                    {% for expense in summary.expenses[:15] %}
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg hover:bg-white/10 group">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium truncate">{{ expense.description }}</p>
+                            <p class="text-xs text-gray-500">{{ expense.category }} · {{ expense.date }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <p class="text-red-400 font-mono">-{{ currency }}{{ "%.2f"|format(expense.amount) }}</p>
+                            <button onclick="deleteExpense({{ expense.id }})" class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-8">No expenses this month yet</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-gray-500 text-sm">
+            <p>Updated: {{ now }} · Ask Mako to add expenses for you! 🦈</p>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="addModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-xl font-semibold mb-4">➕ Add Expense</h3>
+            <form action="/expense" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Date</label>
+                    <input type="date" name="date" required value="{{ now[:10] }}"
+                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Description</label>
+                    <input type="text" name="description" required placeholder="Coffee, Groceries, etc."
+                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Amount ({{ currency }})</label>
+                    <input type="number" name="amount" required step="0.01" min="0" placeholder="0.00"
+                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Category</label>
+                    <select name="category" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
+                        Add Expense
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openAddModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+            document.getElementById('addModal').classList.add('flex');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addModal').classList.remove('flex');
+        }
+
+        function changeMonth() {
+            const [year, month] = document.getElementById('monthSelect').value.split('-');
+            window.location.href = `/?year=${year}&month=${month}`;
+        }
+
+        async function deleteExpense(id) {
+            if (!confirm('Delete this expense?')) return;
+            
+            const response = await fetch(`/api/expense/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Failed to delete expense');
+            }
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('addModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAddModal();
+        });
+
+        // Category chart
+        {% if summary.category_totals %}
+        const categoryData = {{ summary.category_totals | tojson }};
+        const colors = [
+            '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+            '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
+            '#06b6d4', '#a855f7', '#64748b'
+        ];
+        
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(categoryData),
+                datasets: [{
+                    data: Object.values(categoryData),
+                    backgroundColor: colors.slice(0, Object.keys(categoryData).length),
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255,255,255,0.7)', padding: 10, font: { size: 11 } }
+                    }
+                }
+            }
+        });
+        {% endif %}
+    </script>
+</body>
+</html>
