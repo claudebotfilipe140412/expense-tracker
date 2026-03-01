@@ -31,7 +31,7 @@
                 </h1>
                 <p class="text-gray-400 mt-2">{{ month_name }}</p>
             </div>
-            <div class="flex gap-2 items-center">
+            <div class="flex gap-2 items-center flex-wrap">
                 <!-- Month Selector -->
                 <select id="monthSelect" onchange="changeMonth()" class="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
                     {% for y, m in available_months %}
@@ -42,6 +42,9 @@
                 </select>
                 <button onclick="openAddModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
                     ➕ Add Expense
+                </button>
+                <button onclick="openSplitwiseModal()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg font-semibold transition">
+                    🔗 Splitwise
                 </button>
             </div>
         </div>
@@ -196,6 +199,16 @@
         </div>
     </div>
 
+    <!-- Splitwise Modal -->
+    <div id="splitwiseModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-xl font-semibold mb-4">🔗 Splitwise Integration</h3>
+            <div id="splitwiseContent">
+                <p class="text-gray-400">Loading...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Expense Modal -->
     <div id="addModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="card rounded-xl p-6 w-full max-w-md mx-4">
@@ -267,6 +280,90 @@
         document.getElementById('addModal').addEventListener('click', function(e) {
             if (e.target === this) closeAddModal();
         });
+        document.getElementById('splitwiseModal').addEventListener('click', function(e) {
+            if (e.target === this) closeSplitwiseModal();
+        });
+
+        async function openSplitwiseModal() {
+            document.getElementById('splitwiseModal').classList.remove('hidden');
+            document.getElementById('splitwiseModal').classList.add('flex');
+            
+            const content = document.getElementById('splitwiseContent');
+            content.innerHTML = '<p class="text-gray-400">Loading...</p>';
+            
+            try {
+                const response = await fetch('/splitwise/status');
+                const data = await response.json();
+                
+                if (!data.connected) {
+                    content.innerHTML = `
+                        <p class="text-gray-300 mb-4">Connect your Splitwise account to automatically import shared expenses.</p>
+                        <a href="/splitwise/connect" class="block w-full text-center px-4 py-3 bg-teal-600 hover:bg-teal-700 rounded-lg font-semibold transition">
+                            🔐 Connect Splitwise
+                        </a>
+                        <button onclick="closeSplitwiseModal()" class="block w-full mt-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition">
+                            Cancel
+                        </button>
+                    `;
+                } else {
+                    let groupOptions = data.groups.map(g => 
+                        `<option value="${g.id}" ${g.id === data.selected_group ? 'selected' : ''}>${g.name}</option>`
+                    ).join('');
+                    
+                    content.innerHTML = `
+                        <p class="text-green-400 mb-4">✅ Connected to Splitwise</p>
+                        <form action="/splitwise/group" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Select Group to Sync</label>
+                                <select name="group_id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                                    <option value="">-- Select Group --</option>
+                                    ${groupOptions}
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg font-semibold transition">
+                                💾 Save Group
+                            </button>
+                        </form>
+                        ${data.selected_group ? `
+                        <button onclick="syncSplitwise()" class="w-full mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition">
+                            🔄 Sync Now
+                        </button>
+                        ` : ''}
+                        <button onclick="closeSplitwiseModal()" class="w-full mt-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition">
+                            Close
+                        </button>
+                    `;
+                }
+            } catch (err) {
+                content.innerHTML = `<p class="text-red-400">Error loading Splitwise status</p>`;
+            }
+        }
+
+        function closeSplitwiseModal() {
+            document.getElementById('splitwiseModal').classList.add('hidden');
+            document.getElementById('splitwiseModal').classList.remove('flex');
+        }
+
+        async function syncSplitwise() {
+            const content = document.getElementById('splitwiseContent');
+            content.innerHTML = '<p class="text-gray-400">🔄 Syncing...</p>';
+            
+            try {
+                const response = await fetch('/splitwise/sync', { method: 'POST' });
+                const data = await response.json();
+                
+                content.innerHTML = `
+                    <p class="text-green-400 mb-4">✅ Sync complete!</p>
+                    <p class="text-gray-300">Added: ${data.added} expenses</p>
+                    <p class="text-gray-300">Skipped: ${data.skipped} (already imported)</p>
+                    <button onclick="location.reload()" class="w-full mt-4 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
+                        🔄 Refresh Dashboard
+                    </button>
+                `;
+            } catch (err) {
+                content.innerHTML = `<p class="text-red-400">Error syncing: ${err.message}</p>`;
+            }
+        }
 
         // Category chart
         {% if summary.category_totals %}

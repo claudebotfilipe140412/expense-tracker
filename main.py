@@ -14,6 +14,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+import splitwise_sync
+
 app = FastAPI(title="Expense Tracker")
 
 # Setup
@@ -76,7 +78,26 @@ def init_db():
                 amount REAL NOT NULL,
                 category TEXT NOT NULL,
                 is_fixed BOOLEAN DEFAULT FALSE,
+                splitwise_id INTEGER UNIQUE,
+                source TEXT DEFAULT 'manual',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Add columns if they don't exist (migration)
+        try:
+            conn.execute("ALTER TABLE expenses ADD COLUMN splitwise_id INTEGER UNIQUE")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE expenses ADD COLUMN source TEXT DEFAULT 'manual'")
+        except sqlite3.OperationalError:
+            pass
+        
+        # Settings table for Splitwise group
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
             )
         """)
         conn.commit()
@@ -272,6 +293,95 @@ async def api_summary(year: Optional[int] = None, month: Optional[int] = None):
 async def api_config():
     """Get configuration."""
     return CONFIG
+
+
+# ============ SPLITWISE ROUTES ============
+@app.get("/splitwise/status")
+async def splitwise_status():
+    """Check Splitwise connection status."""
+    connected = splitwise_sync.is_authenticated()
+    groups = []
+    selected_group = None
+    
+    if connected:
+        groups = splitwise_sync.get_groups()
+        with get_db() as conn:
+            cursor = conn.execute("SELECT value FROM settings WHERE key = 'splitwise_group_id'")
+            row = cursor.fetchone()
+            if row:
+                selected_group = int(row["value"])
+    
+    return {
+        "connected": connected,
+        "groups": groups,
+        "selected_group": selected_group,
+    }
+
+
+@app.get("/splitwise/connect")
+async def splitwise_connect():
+    """Start Splitwise OAuth flow."""
+    url = splitwise_sync.get_auth_url()
+    return RedirectResponse(url=url)
+
+
+@app.get("/splitwise/callback")
+async def splitwise_callback(code: str = None, state: str = None, error: str = None):
+    """Handle Splitwise OAuth callback."""
+    if error:
+        return RedirectResponse(url="/?error=splitwise_denied")
+    
+    if code and state:
+        success = splitwise_sync.complete_auth(code, state)
+        if success:
+            return RedirectResponse(url="/?success=splitwise_connected")
+    
+    return RedirectResponse(url="/?error=splitwise_failed")
+
+
+@app.post("/splitwise/group")
+async def set_splitwise_group(group_id: int = Form(...)):
+    """Set the Splitwise group to sync."""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('splitwise_group_id', ?)",
+            (str(group_id),)
+        )
+        conn.commit()
+    return RedirectResponse(url="/?success=group_saved", status_code=303)
+
+
+@app.post("/splitwise/sync")
+async def sync_splitwise():
+    """Manually trigger Splitwise sync."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT value FROM settings WHERE key = 'splitwise_group_id'")
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=400, detail="No Splitwise group selected")
+        
+        group_id = int(row["value"])
+        result = splitwise_sync.sync_group(group_id, conn)
+    
+    return result
+
+
+@app.get("/api/splitwise/sync")
+async def api_sync_splitwise():
+    """API endpoint for cron sync."""
+    if not splitwise_sync.is_authenticated():
+        return {"status": "error", "message": "Not authenticated"}
+    
+    with get_db() as conn:
+        cursor = conn.execute("SELECT value FROM settings WHERE key = 'splitwise_group_id'")
+        row = cursor.fetchone()
+        if not row:
+            return {"status": "error", "message": "No group selected"}
+        
+        group_id = int(row["value"])
+        result = splitwise_sync.sync_group(group_id, conn)
+    
+    return {"status": "ok", **result}
 
 
 if __name__ == "__main__":
