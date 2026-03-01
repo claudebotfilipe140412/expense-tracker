@@ -32,7 +32,6 @@ CONFIG = {
     "fixed_expenses": [
         {"name": "Rent", "amount": 359.00, "category": "Housing"},
         {"name": "Gym", "amount": 32.40, "category": "Health & Fitness"},
-        {"name": "Internet", "amount": 5.00, "category": "Utilities"},
         {"name": "Health Insurance", "amount": 80.16, "category": "Healthcare"},
     ],
     "savings": [
