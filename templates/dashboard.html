@@ -211,119 +211,256 @@
 
             <!-- Totals Tab -->
             <div id="tab-totals" class="tab-content hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <!-- Income Breakdown -->
-                    <div class="card rounded-xl p-6">
-                        <h3 class="font-semibold text-slate-800 mb-6">Income Allocation</h3>
+                <!-- Period Selector -->
+                <div class="flex gap-2 mb-6">
+                    <button onclick="showPeriod('month')" id="btn-month" class="period-btn px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">This Month</button>
+                    <button onclick="showPeriod('year')" id="btn-year" class="period-btn px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300">Year {{ year }}</button>
+                    <button onclick="showPeriod('alltime')" id="btn-alltime" class="period-btn px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300">All Time</button>
+                </div>
+
+                <!-- Monthly Totals -->
+                <div id="period-month" class="period-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="card rounded-xl p-6">
+                            <h3 class="font-semibold text-slate-800 mb-6">{{ month_name }} - Income Allocation</h3>
+                            <div class="space-y-6">
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-slate-600">Gross Income</span>
+                                        <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(summary.income) }}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-3">
+                                        <div class="h-3 rounded-full bg-green-500" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-slate-600">Fixed Expenses</span>
+                                        <span class="font-bold text-orange-600">-{{ currency }}{{ "%.2f"|format(summary.total_fixed) }}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-3">
+                                        <div class="h-3 rounded-full bg-orange-500" style="width: {{ (summary.total_fixed / summary.income * 100)|int }}%"></div>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_fixed / summary.income * 100) }}% of income</p>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-slate-600">Savings & Investments</span>
+                                        <span class="font-bold text-purple-600">-{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-3">
+                                        <div class="h-3 rounded-full bg-purple-500" style="width: {{ (summary.total_savings / summary.income * 100)|int }}%"></div>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_savings / summary.income * 100) }}% of income</p>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-slate-600">Variable Spending</span>
+                                        <span class="font-bold text-red-600">-{{ currency }}{{ "%.2f"|format(summary.total_variable) }}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-3">
+                                        <div class="h-3 rounded-full bg-red-500" style="width: {{ (summary.total_variable / summary.income * 100)|int }}%"></div>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_variable / summary.income * 100) }}% of income</p>
+                                </div>
+                                <div class="border-t pt-4">
+                                    <div class="flex justify-between">
+                                        <span class="font-semibold text-slate-800">Net Remaining</span>
+                                        <span class="font-bold text-2xl {% if summary.remaining >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ currency }}{{ "%.2f"|format(summary.remaining) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="space-y-6">
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <span class="text-slate-600">Gross Income</span>
-                                    <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(summary.income) }}</span>
-                                </div>
-                                <div class="w-full bg-slate-100 rounded-full h-3">
-                                    <div class="h-3 rounded-full bg-green-500" style="width: 100%"></div>
+                            <div class="card rounded-xl p-6">
+                                <h3 class="font-semibold text-slate-800 mb-4">Fixed Expenses</h3>
+                                <div class="space-y-3">
+                                    {% for expense in summary.fixed_expenses %}
+                                    <div class="flex justify-between items-center py-2 border-b border-slate-50">
+                                        <span class="text-slate-700">{{ expense.name }}</span>
+                                        <span class="font-medium text-slate-800">{{ currency }}{{ "%.2f"|format(expense.amount) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="flex justify-between items-center pt-2 font-semibold">
+                                        <span class="text-slate-800">Total</span>
+                                        <span class="text-orange-600">{{ currency }}{{ "%.2f"|format(summary.total_fixed) }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <span class="text-slate-600">Fixed Expenses</span>
-                                    <span class="font-bold text-orange-600">-{{ currency }}{{ "%.2f"|format(summary.total_fixed) }}</span>
-                                </div>
-                                <div class="w-full bg-slate-100 rounded-full h-3">
-                                    <div class="h-3 rounded-full bg-orange-500" style="width: {{ (summary.total_fixed / summary.income * 100)|int }}%"></div>
-                                </div>
-                                <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_fixed / summary.income * 100) }}% of income</p>
-                            </div>
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <span class="text-slate-600">Savings & Investments</span>
-                                    <span class="font-bold text-purple-600">-{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</span>
-                                </div>
-                                <div class="w-full bg-slate-100 rounded-full h-3">
-                                    <div class="h-3 rounded-full bg-purple-500" style="width: {{ (summary.total_savings / summary.income * 100)|int }}%"></div>
-                                </div>
-                                <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_savings / summary.income * 100) }}% of income</p>
-                            </div>
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <span class="text-slate-600">Variable Spending</span>
-                                    <span class="font-bold text-red-600">-{{ currency }}{{ "%.2f"|format(summary.total_variable) }}</span>
-                                </div>
-                                <div class="w-full bg-slate-100 rounded-full h-3">
-                                    <div class="h-3 rounded-full bg-red-500" style="width: {{ (summary.total_variable / summary.income * 100)|int }}%"></div>
-                                </div>
-                                <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format(summary.total_variable / summary.income * 100) }}% of income</p>
-                            </div>
-                            <div class="border-t pt-4">
-                                <div class="flex justify-between">
-                                    <span class="font-semibold text-slate-800">Net Remaining</span>
-                                    <span class="font-bold text-2xl {% if summary.remaining >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ currency }}{{ "%.2f"|format(summary.remaining) }}</span>
+
+                            <div class="card rounded-xl p-6">
+                                <h3 class="font-semibold text-slate-800 mb-4">Savings</h3>
+                                <div class="space-y-3">
+                                    {% for saving in summary.savings %}
+                                    <div class="flex justify-between items-center py-2 border-b border-slate-50">
+                                        <span class="text-slate-700">{{ saving.name }}</span>
+                                        <span class="font-medium text-slate-800">{{ currency }}{{ "%.2f"|format(saving.amount) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="flex justify-between items-center pt-2 font-semibold">
+                                        <span class="text-slate-800">Total</span>
+                                        <span class="text-purple-600">{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Summary Cards -->
-                    <div class="space-y-6">
-                        <div class="card rounded-xl p-6">
-                            <h3 class="font-semibold text-slate-800 mb-4">Fixed Expenses Breakdown</h3>
-                            <div class="space-y-3">
-                                {% for expense in summary.fixed_expenses %}
-                                <div class="flex justify-between items-center py-2 border-b border-slate-50">
-                                    <span class="text-slate-700">{{ expense.name }}</span>
-                                    <div class="text-right">
-                                        <span class="font-medium text-slate-800">{{ currency }}{{ "%.2f"|format(expense.amount) }}</span>
-                                        <span class="text-xs text-slate-400 ml-2">{{ "%.1f"|format(expense.amount / summary.income * 100) }}%</span>
-                                    </div>
+                    <div class="card rounded-xl p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Monthly Category Breakdown</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for cat, amount in summary.category_totals.items() %}
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-700">{{ cat }}</span>
+                                    <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(amount) }}</span>
                                 </div>
-                                {% endfor %}
-                                <div class="flex justify-between items-center pt-2 font-semibold">
-                                    <span class="text-slate-800">Total Fixed</span>
-                                    <span class="text-orange-600">{{ currency }}{{ "%.2f"|format(summary.total_fixed) }}</span>
+                                <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+                                    <div class="h-2 rounded-full bg-blue-500" style="width: {{ (amount / summary.total_variable * 100) if summary.total_variable > 0 else 0 }}%"></div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="card rounded-xl p-6">
-                            <h3 class="font-semibold text-slate-800 mb-4">Savings Breakdown</h3>
-                            <div class="space-y-3">
-                                {% for saving in summary.savings %}
-                                <div class="flex justify-between items-center py-2 border-b border-slate-50">
-                                    <span class="text-slate-700">{{ saving.name }}</span>
-                                    <div class="text-right">
-                                        <span class="font-medium text-slate-800">{{ currency }}{{ "%.2f"|format(saving.amount) }}</span>
-                                        <span class="text-xs text-slate-400 ml-2">{{ "%.1f"|format(saving.amount / summary.income * 100) }}%</span>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                                <div class="flex justify-between items-center pt-2 font-semibold">
-                                    <span class="text-slate-800">Total Savings</span>
-                                    <span class="text-purple-600">{{ currency }}{{ "%.2f"|format(summary.total_savings) }}</span>
-                                </div>
-                            </div>
+                            {% else %}
+                            <p class="text-slate-400 col-span-3 text-center py-8">No expenses this month</p>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
 
-                <!-- Category Totals -->
-                <div class="card rounded-xl p-6">
-                    <h3 class="font-semibold text-slate-800 mb-4">Spending by Category</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {% for cat, amount in summary.category_totals.items() %}
-                        <div class="bg-slate-50 rounded-lg p-4">
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-700">{{ cat }}</span>
-                                <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(amount) }}</span>
-                            </div>
-                            <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
-                                <div class="h-2 rounded-full bg-blue-500" style="width: {{ (amount / summary.total_variable * 100) if summary.total_variable > 0 else 0 }}%"></div>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">{{ "%.1f"|format((amount / summary.total_variable * 100) if summary.total_variable > 0 else 0) }}% of variable</p>
+                <!-- Yearly Totals -->
+                <div id="period-year" class="period-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Year Income ({{ year_summary.months_passed }} months)</p>
+                            <p class="text-2xl font-bold text-green-600">{{ currency }}{{ "%.2f"|format(year_summary.total_income) }}</p>
                         </div>
-                        {% else %}
-                        <p class="text-slate-400 col-span-3 text-center py-8">No expenses this month</p>
-                        {% endfor %}
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Year Fixed</p>
+                            <p class="text-2xl font-bold text-orange-600">{{ currency }}{{ "%.2f"|format(year_summary.total_fixed) }}</p>
+                        </div>
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Year Savings</p>
+                            <p class="text-2xl font-bold text-purple-600">{{ currency }}{{ "%.2f"|format(year_summary.total_savings) }}</p>
+                        </div>
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Year Variable</p>
+                            <p class="text-2xl font-bold text-red-600">{{ currency }}{{ "%.2f"|format(year_summary.total_variable) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="card rounded-xl p-6">
+                            <h3 class="font-semibold text-slate-800 mb-4">{{ year }} Summary</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between py-2 border-b">
+                                    <span class="text-slate-600">Total Income</span>
+                                    <span class="font-bold text-green-600">{{ currency }}{{ "%.2f"|format(year_summary.total_income) }}</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b">
+                                    <span class="text-slate-600">Total Fixed Expenses</span>
+                                    <span class="font-bold text-orange-600">-{{ currency }}{{ "%.2f"|format(year_summary.total_fixed) }}</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b">
+                                    <span class="text-slate-600">Total Savings</span>
+                                    <span class="font-bold text-purple-600">-{{ currency }}{{ "%.2f"|format(year_summary.total_savings) }}</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b">
+                                    <span class="text-slate-600">Total Variable Spending</span>
+                                    <span class="font-bold text-red-600">-{{ currency }}{{ "%.2f"|format(year_summary.total_variable) }}</span>
+                                </div>
+                                <div class="flex justify-between py-2">
+                                    <span class="font-semibold text-slate-800">Net Balance</span>
+                                    <span class="font-bold text-2xl {% if year_summary.remaining >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ currency }}{{ "%.2f"|format(year_summary.remaining) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card rounded-xl p-6">
+                            <h3 class="font-semibold text-slate-800 mb-4">Monthly Spending ({{ year }})</h3>
+                            <canvas id="yearlyMonthChart" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card rounded-xl p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">{{ year }} Category Breakdown</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for cat, amount in year_summary.category_totals.items() %}
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-700">{{ cat }}</span>
+                                    <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(amount) }}</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+                                    <div class="h-2 rounded-full bg-blue-500" style="width: {{ (amount / year_summary.total_variable * 100) if year_summary.total_variable > 0 else 0 }}%"></div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-slate-400 col-span-3 text-center py-8">No expenses this year</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Time Totals -->
+                <div id="period-alltime" class="period-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Total Variable Spending</p>
+                            <p class="text-3xl font-bold text-red-600">{{ currency }}{{ "%.2f"|format(alltime_summary.total_variable) }}</p>
+                            <p class="text-xs text-slate-400 mt-2">Since {{ alltime_summary.first_date or 'N/A' }}</p>
+                        </div>
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Categories Tracked</p>
+                            <p class="text-3xl font-bold text-blue-600">{{ alltime_summary.category_totals|length }}</p>
+                        </div>
+                        <div class="card rounded-xl p-6">
+                            <p class="text-slate-500 text-sm">Years Tracked</p>
+                            <p class="text-3xl font-bold text-slate-800">{{ alltime_summary.years|length or 0 }}</p>
+                        </div>
+                    </div>
+
+                    {% if alltime_summary.yearly_totals %}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="card rounded-xl p-6">
+                            <h3 class="font-semibold text-slate-800 mb-4">Spending by Year</h3>
+                            <div class="space-y-3">
+                                {% for yr, amount in alltime_summary.yearly_totals.items() %}
+                                <div class="flex justify-between items-center py-3 border-b border-slate-50">
+                                    <span class="text-slate-700 font-medium">{{ yr }}</span>
+                                    <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(amount) }}</span>
+                                </div>
+                                {% endfor %}
+                                <div class="flex justify-between items-center pt-3 font-semibold">
+                                    <span class="text-slate-800">All Time Total</span>
+                                    <span class="text-red-600 text-xl">{{ currency }}{{ "%.2f"|format(alltime_summary.total_variable) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card rounded-xl p-6">
+                            <h3 class="font-semibold text-slate-800 mb-4">Yearly Comparison</h3>
+                            <canvas id="alltimeYearChart" height="200"></canvas>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="card rounded-xl p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">All Time Category Breakdown</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for cat, amount in alltime_summary.category_totals.items() %}
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-700">{{ cat }}</span>
+                                    <span class="font-bold text-slate-800">{{ currency }}{{ "%.2f"|format(amount) }}</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+                                    <div class="h-2 rounded-full bg-blue-500" style="width: {{ (amount / alltime_summary.total_variable * 100) if alltime_summary.total_variable > 0 else 0 }}%"></div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-slate-400 col-span-3 text-center py-8">No expenses recorded</p>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -534,6 +671,74 @@
                 content.innerHTML = `<p class="text-red-600">Error: ${err.message}</p>`;
             }
         }
+
+        // Period switching for Totals tab
+        function showPeriod(period) {
+            document.querySelectorAll('.period-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('period-' + period).classList.remove('hidden');
+            
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-slate-200', 'text-slate-700');
+            });
+            document.getElementById('btn-' + period).classList.remove('bg-slate-200', 'text-slate-700');
+            document.getElementById('btn-' + period).classList.add('bg-blue-600', 'text-white');
+        }
+
+        // Yearly monthly chart
+        {% if year_summary.monthly_totals %}
+        const yearlyMonthCtx = document.getElementById('yearlyMonthChart');
+        if (yearlyMonthCtx) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthlyData = {{ year_summary.monthly_totals | tojson }};
+            new Chart(yearlyMonthCtx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Spending',
+                        data: months.map((_, i) => monthlyData[i + 1] || 0),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => '€' + v } }
+                    }
+                }
+            });
+        }
+        {% endif %}
+
+        // All-time yearly chart
+        {% if alltime_summary.yearly_totals %}
+        const alltimeYearCtx = document.getElementById('alltimeYearChart');
+        if (alltimeYearCtx) {
+            const yearlyData = {{ alltime_summary.yearly_totals | tojson }};
+            new Chart(alltimeYearCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(yearlyData),
+                    datasets: [{
+                        label: 'Spending',
+                        data: Object.values(yearlyData),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => '€' + v } }
+                    }
+                }
+            });
+        }
+        {% endif %}
 
         // Category chart
         {% if summary.category_totals %}

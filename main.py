@@ -188,6 +188,121 @@ def get_month_summary(year: int, month: int) -> dict:
     }
 
 
+def get_year_summary(year: int) -> dict:
+    """Calculate yearly totals."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) as total,
+                   COUNT(*) as count
+            FROM expenses 
+            WHERE strftime('%Y', date) = ?
+            """,
+            (str(year),)
+        )
+        row = cursor.fetchone()
+        total_variable = row["total"] if row else 0
+        
+        # Category breakdown for year
+        cursor = conn.execute(
+            """
+            SELECT category, SUM(amount) as total
+            FROM expenses 
+            WHERE strftime('%Y', date) = ?
+            GROUP BY category
+            ORDER BY total DESC
+            """,
+            (str(year),)
+        )
+        category_totals = {row["category"]: row["total"] for row in cursor.fetchall()}
+        
+        # Monthly breakdown
+        cursor = conn.execute(
+            """
+            SELECT strftime('%m', date) as month, SUM(amount) as total
+            FROM expenses 
+            WHERE strftime('%Y', date) = ?
+            GROUP BY month
+            ORDER BY month
+            """,
+            (str(year),)
+        )
+        monthly_totals = {int(row["month"]): row["total"] for row in cursor.fetchall()}
+    
+    # Calculate fixed and savings for full year (multiply by 12 or months passed)
+    today = date.today()
+    if year == today.year:
+        months_passed = today.month
+    else:
+        months_passed = 12
+    
+    total_fixed = sum(e["amount"] for e in CONFIG["fixed_expenses"]) * months_passed
+    total_savings = sum(s["amount"] for s in CONFIG["savings"]) * months_passed
+    total_income = CONFIG["income"] * months_passed
+    
+    return {
+        "year": year,
+        "months_passed": months_passed,
+        "total_income": total_income,
+        "total_fixed": total_fixed,
+        "total_savings": total_savings,
+        "total_variable": total_variable,
+        "total_spent": total_fixed + total_variable,
+        "remaining": total_income - total_fixed - total_savings - total_variable,
+        "category_totals": category_totals,
+        "monthly_totals": monthly_totals,
+    }
+
+
+def get_alltime_summary() -> dict:
+    """Calculate all-time totals."""
+    with get_db() as conn:
+        # Get all expenses
+        cursor = conn.execute("SELECT COALESCE(SUM(amount), 0) as total FROM expenses")
+        total_variable = cursor.fetchone()["total"]
+        
+        # Get date range
+        cursor = conn.execute("SELECT MIN(date) as first, MAX(date) as last FROM expenses")
+        row = cursor.fetchone()
+        first_date = row["first"]
+        last_date = row["last"]
+        
+        # Category breakdown
+        cursor = conn.execute(
+            """
+            SELECT category, SUM(amount) as total
+            FROM expenses 
+            GROUP BY category
+            ORDER BY total DESC
+            """
+        )
+        category_totals = {row["category"]: row["total"] for row in cursor.fetchall()}
+        
+        # Yearly breakdown
+        cursor = conn.execute(
+            """
+            SELECT strftime('%Y', date) as year, SUM(amount) as total
+            FROM expenses 
+            GROUP BY year
+            ORDER BY year
+            """
+        )
+        yearly_totals = {row["year"]: row["total"] for row in cursor.fetchall()}
+        
+        # Get available years
+        cursor = conn.execute("SELECT DISTINCT strftime('%Y', date) as year FROM expenses ORDER BY year")
+        years = [int(row["year"]) for row in cursor.fetchall()]
+    
+    return {
+        "first_date": first_date,
+        "last_date": last_date,
+        "total_variable": total_variable,
+        "category_totals": category_totals,
+        "yearly_totals": yearly_totals,
+        "years": years,
+    }
+
+
 def get_available_months() -> list:
     """Get list of months that have expenses."""
     with get_db() as conn:
@@ -216,17 +331,27 @@ async def dashboard(request: Request, year: Optional[int] = None, month: Optiona
     month = month or today.month
     
     summary = get_month_summary(year, month)
+    year_summary = get_year_summary(year)
+    alltime_summary = get_alltime_summary()
     available_months = get_available_months()
+    
+    # Get list of years for selector
+    available_years = sorted(set([y for y, m in available_months]), reverse=True)
+    if today.year not in available_years:
+        available_years.insert(0, today.year)
     
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "summary": summary,
+        "year_summary": year_summary,
+        "alltime_summary": alltime_summary,
         "year": year,
         "month": month,
         "month_name": date(year, month, 1).strftime("%B %Y"),
         "categories": CONFIG["categories"],
         "currency": CONFIG["currency"],
         "available_months": available_months,
+        "available_years": available_years,
         "is_current_month": year == today.year and month == today.month,
         "now": datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
@@ -294,6 +419,18 @@ async def api_summary(year: Optional[int] = None, month: Optional[int] = None):
 async def api_config():
     """Get configuration."""
     return CONFIG
+
+
+@app.get("/api/year/{year}")
+async def api_year_summary(year: int):
+    """Get yearly summary."""
+    return get_year_summary(year)
+
+
+@app.get("/api/alltime")
+async def api_alltime_summary():
+    """Get all-time summary."""
+    return get_alltime_summary()
 
 
 # ============ SPLITWISE ROUTES ============
