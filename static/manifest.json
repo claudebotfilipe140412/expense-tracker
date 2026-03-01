@@ -1,0 +1,10 @@
+{
+  "name": "Expense Tracker",
+  "short_name": "Expenses",
+  "description": "Personal finance dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e293b",
+  "orientation": "portrait"
+}

@@ -11,12 +11,18 @@ from contextlib import contextmanager
 
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 import splitwise_sync
 
 app = FastAPI(title="Expense Tracker")
+
+# Serve static files
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Setup
 templates_dir = Path(__file__).parent / "templates"
