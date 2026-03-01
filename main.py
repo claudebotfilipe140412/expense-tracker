@@ -128,7 +128,9 @@ def get_month_expenses(year: int, month: int) -> list:
     with get_db() as conn:
         cursor = conn.execute(
             """
-            SELECT * FROM expenses 
+            SELECT id, date, description, amount, category, is_fixed, 
+                   COALESCE(source, 'manual') as source, splitwise_id, created_at
+            FROM expenses 
             WHERE strftime('%Y', date) = ? AND strftime('%m', date) = ?
             ORDER BY date DESC, id DESC
             """,
