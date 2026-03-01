@@ -4,3 +4,5 @@ venv/
 .env
 *.db
 .DS_Store
+.splitwise_tokens.json
+.splitwise_state
