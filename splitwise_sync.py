@@ -65,7 +65,7 @@ KEYWORD_CATEGORIES = {
     "Utilities": ["digi", "vodafone", "nos", "meo", "internet", "wifi", "luz", "electricidade", "água", "agua", "gás", "gas", "edp", "galp", "endesa"],
     
     # Food & Groceries
-    "Food & Groceries": ["supermercado", "mercado", "pingo doce", "continente", "lidl", "aldi", "minipreço", "minipreco", "intermarché", "intermarche", "auchan", "jumbo", "mercearia", "talho", "padaria", "frutaria", "peixaria", "groceries", "compras", "café", "cafe", "pastelaria", "restaurante", "jantar", "almoço", "almoco", "comida", "pizza", "burger", "mcdonald", "uber eats", "glovo", "bolt food"],
+    "Food & Groceries": ["supermercado", "mercado", "pingo doce", "continente", "lidl", "aldi", "minipreço", "minipreco", "intermarché", "intermarche", "auchan", "jumbo", "mercearia", "talho", "padaria", "frutaria", "peixaria", "groceries", "compras", "café", "cafe", "pastelaria", "restaurante", "jantar", "almoço", "almoco", "comida", "pizza", "burger", "mcdonald", "uber eats", "glovo", "bolt food", "lanche", "pequeno-almoço", "pequeno almoço", "pequeno-almoco", "pequeno almoco"],
     
     # Transportation
     "Transportation": ["uber", "bolt", "táxi", "taxi", "gasolina", "gasóleo", "gasoleo", "combustível", "combustivel", "estacionamento", "parking", "portagem", "via verde", "comboio", "metro", "autocarro", "bus", "cp", "carris", "fertagus", "transtejo"],
@@ -207,6 +207,10 @@ def get_expenses_for_sync(group_id: int, since_date: str = None) -> list:
         if our_share > 0:
             description = exp.getDescription()
             
+            # Get Splitwise category
+            sw_category = exp.getCategory()
+            sw_cat_name = sw_category.getName() if sw_category else "Other"
+            
             # First try keyword-based categorization (Portuguese)
             keyword_cat = categorize_by_keywords(description)
             
@@ -214,9 +218,7 @@ def get_expenses_for_sync(group_id: int, since_date: str = None) -> list:
                 mapped_cat = keyword_cat
             else:
                 # Fall back to Splitwise category mapping
-                category = exp.getCategory()
-                cat_name = category.getName() if category else "Other"
-                mapped_cat = CATEGORY_MAP.get(cat_name, "Other")
+                mapped_cat = CATEGORY_MAP.get(sw_cat_name, "Other")
             
             result.append({
                 "splitwise_id": exp.getId(),
@@ -224,7 +226,7 @@ def get_expenses_for_sync(group_id: int, since_date: str = None) -> list:
                 "description": description,
                 "amount": our_share,
                 "category": mapped_cat,
-                "original_category": category.getName() if category else "Other",
+                "original_category": sw_cat_name,
                 "we_paid": we_paid,
             })
     
